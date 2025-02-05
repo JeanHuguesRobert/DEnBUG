@@ -1,0 +1,156 @@
+.calculator {
+  height: 100%;
+  background: #1e1e1e;
+  font-family: 'Consolas', monospace;
+  font-size: 0.7em;  /* Reduced from 0.8em */
+  display: flex;
+  flex-direction: column;
+  padding: 4px;      /* Reduced from 8px */
+}
+
+.calc-header {
+  border-bottom: 1px solid #333;
+}
+
+.fold-button {
+  width: 100%;
+  padding: 8px;
+  background: #252526;
+  border: none;
+  color: #cccccc;
+  cursor: pointer;
+  text-align: left;
+  border-radius: 6px 6px 0 0;
+}
+
+.fold-button:hover {
+  background: #2d2d2d;
+}
+
+.calc-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;          /* Reduced from 8px */
+  overflow: auto;
+}
+
+.display {
+  margin-bottom: 12px;
+}
+
+.display input {
+  width: 100%;
+  padding: 8px;
+  background: #0d2230;
+  border: 1px solid #264f78;
+  color: #569cd6;
+  font-family: 'Consolas', monospace;
+  font-size: 1.2em;
+  text-align: right;
+  border-radius: 4px;
+}
+
+.base-buttons {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.base-buttons button {
+  padding: 6px;
+  background: #2d2d2d;
+  border: 1px solid #3d3d3d;
+  color: #cccccc;
+  cursor: pointer;
+}
+
+.base-buttons button.active {
+  background: #094771;
+  border-color: #095591;
+}
+
+.keypad {
+  display: grid;
+  gap: 8px;
+}
+
+.bit-ops {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+}
+
+.memory {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+}
+
+.keypad button {
+  padding: 8px;
+  background: #333333;
+  border: 1px solid #3d3d3d;
+  color: #cccccc;
+  cursor: pointer;
+  border-radius: 2px;
+}
+
+.keypad button:hover {
+  background: #3d3d3d;
+}
+
+.digits {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.digits button {
+  padding: 12px;
+  background: #2d2d2d;
+  border: 1px solid #3d3d3d;
+  color: #cccccc;
+  font-size: 1.1em;
+  cursor: pointer;
+}
+
+.digits button.digit-zero {
+  grid-column: 2;  /* Center the zero button */
+}
+
+.digits button:hover {
+  background: #3d3d3d;
+}
+
+.stack-display {
+  background: #0d2230;
+  border: 1px solid #264f78;
+  border-radius: 4px;
+  margin-bottom: 12px;
+  font-family: 'Consolas', monospace;
+  max-height: 120px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column-reverse;
+}
+
+.stack-item {
+  padding: 4px 8px;
+  color: #569cd6;
+  border-bottom: 1px solid #1e1e1e;
+}
+
+.stack-item.input {
+  background: #143652;
+  color: #3794ff;
+  font-weight: bold;
+}
+
+/* Adjust button sizes */
+.calculator button {
+  padding: 2px 4px;  /* Reduced padding */
+  min-height: 20px;  /* Ensure minimum clickable area */
+}

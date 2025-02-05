@@ -1,0 +1,24 @@
+.step-controls {
+    display: flex;
+    gap: 4px;
+    margin: 0 8px;
+}
+
+.step-controls button {
+    padding: 4px 8px;
+    background: #2d2d2d;
+    border: 1px solid #3d3d3d;
+    color: #cccccc;
+    cursor: pointer;
+    font-size: 12px;
+    border-radius: 2px;
+}
+
+.step-controls button:hover:not(:disabled) {
+    background: #3d3d3d;
+}
+
+.step-controls button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}

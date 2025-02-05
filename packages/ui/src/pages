@@ -1,0 +1,39 @@
+import React from 'react';
+import { StackPanel } from '../components/StackPanel';
+import { SourcePanel } from '../components/SourcePanel';
+import { Calculator } from '../components/Calculator';
+import { DomainSelector } from '../components/DomainSelector';
+import { TracePanel } from '../components/TracePanel';
+import { StepControls } from '../components/StepControls';
+import './PlaygroundPage.css';
+
+export const PlaygroundPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
+  return (
+    <div className="playground-page">
+      <div className="toolbar">
+        <button onClick={onBack}>← Back</button>
+        <StepControls />
+        <DomainSelector />
+      </div>
+      
+      <div className="debug-grid">
+        <div className="debug-left">
+          <div className="trace-area">
+            <TracePanel />
+          </div>
+          <div className="stack-area">
+            <StackPanel />
+          </div>
+        </div>
+        <div className="debug-right">
+          <div className="source-area">
+            <SourcePanel />
+          </div>
+          <div className="calculator-area">
+            <Calculator />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};

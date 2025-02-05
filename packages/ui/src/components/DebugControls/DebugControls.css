@@ -1,0 +1,78 @@
+.debug-controls {
+  background: #252526;
+  border-bottom: 1px solid #333;
+  font-family: 'Consolas', monospace;
+}
+
+.debug-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border-bottom: 1px solid #333;
+}
+
+.debug-toolbar button {
+  padding: 4px 8px;
+  background: #2d2d2d;
+  border: 1px solid #3d3d3d;
+  color: #cccccc;
+  cursor: pointer;
+}
+
+.debug-toolbar button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.trace-position {
+  margin-left: 16px;
+  color: #cccccc;
+}
+
+.current-trace {
+  padding: 8px;
+}
+
+.trace-info {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.domain {
+  color: #569cd6;
+}
+
+.args {
+  color: #9cdcfe;
+}
+
+.stack-frames {
+  border: 1px solid #333;
+  border-radius: 2px;
+}
+
+.stack-frame {
+  padding: 4px 8px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 1px solid #1e1e1e;
+}
+
+.stack-frame:hover {
+  background: #2d2d2d;
+}
+
+.stack-frame.selected {
+  background: #094771;
+}
+
+.stack-frame .function {
+  color: #dcdcaa;
+}
+
+.stack-frame .location {
+  color: #808080;
+}

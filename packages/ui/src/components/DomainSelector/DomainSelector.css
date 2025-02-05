@@ -1,0 +1,164 @@
+.domain-selector {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px;
+    height: 100%;
+    background: #1e1e1e;
+    color: #cccccc;
+}
+
+.domain-button {
+    padding: 4px 8px;
+    background: #2d2d2d;
+    border: 1px solid #3d3d3d;
+    color: #cccccc;
+    cursor: pointer;
+    font-size: 12px;
+    border-radius: 2px;
+}
+
+.domain-button:hover {
+    background: #3d3d3d;
+}
+
+.domain-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 1000;
+    min-width: 240px;
+    max-height: 400px;
+    overflow-y: auto;
+    background: #252526;
+    border: 1px solid #3d3d3d;
+    border-radius: 2px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    margin-top: 4px;
+}
+
+.domain-filter {
+    padding: 4px 8px;
+    border: 1px solid #333;
+    background: #1e1e1e;
+    color: #cccccc;
+    border-radius: 4px;
+}
+
+.domain-tree {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    overflow-y: auto;
+}
+
+.domain-tree-node {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.domain-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 2px 4px;
+    border-radius: 4px;
+    cursor: pointer;
+    user-select: none;
+    transition: padding-left 0.1s ease;
+    margin: 2px 0;
+}
+
+.domain-item:hover {
+    background: #2d2d2d;
+}
+
+.domain-item input[type="checkbox"] {
+    margin-right: 8px;
+}
+
+.domain-name {
+    font-family: 'Consolas', monospace;
+    font-size: 12px;
+    color: #cccccc;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #cccccc;
+    cursor: pointer;
+}
+
+.checkbox-label input {
+    cursor: pointer;
+}
+
+.domain-toolbar {
+    display: flex;
+    padding: 8px;
+    gap: 8px;
+    border-bottom: 1px solid #333;
+}
+
+.domain-toolbar input {
+    flex: 1;
+    background: #3c3c3c;
+    border: 1px solid #3c3c3c;
+    color: #cccccc;
+    padding: 4px 8px;
+    border-radius: 2px;
+}
+
+.domain-toolbar button {
+    padding: 4px 8px;
+    background: #2d2d2d;
+    border: 1px solid #3d3d3d;
+    color: #cccccc;
+    cursor: pointer;
+    border-radius: 2px;
+}
+
+.domain-list {
+    flex: 1;
+    overflow: auto;
+    padding: 8px;
+}
+
+.domain-controls {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 0;
+}
+
+.domain-label, .echo-label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+}
+
+.domain-label:hover {
+    color: #ffffff;
+}
+
+.domain-expander {
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    opacity: 0.7;
+    user-select: none;
+}
+
+.domain-expander:hover {
+    opacity: 1;
+}

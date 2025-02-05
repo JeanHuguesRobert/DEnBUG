@@ -1,0 +1,56 @@
+@import '../../styles/panels.css';
+
+.stack-panel {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  background: #1e1e1e;
+  font-family: 'Consolas', monospace;
+  font-size: 12px;
+}
+
+.stack-list {
+  flex: 1;
+  overflow: auto;
+}
+
+.stack-frame {
+  padding: 4px 8px;
+  cursor: pointer;
+  border-bottom: 1px solid #333;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.stack-frame:hover {
+  background: #2d2d2d;
+}
+
+.stack-frame.selected {
+  background: #094771;
+}
+
+.stack-content {
+  font-family: 'Consolas', monospace;
+  font-size: 0.9em;
+}
+
+.frame-function {
+  color: #4ec9b0;
+}
+
+.frame-location {
+  color: #666;
+  font-size: 11px;
+}
+
+.empty-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #666;
+  font-style: italic;
+}

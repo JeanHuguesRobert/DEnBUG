@@ -1,0 +1,8 @@
+{
+  "short_name": "Retracer UI",
+  "name": "Retracer Time Travel Debugger UI",
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#000000",
+  "background_color": "#ffffff"
+}

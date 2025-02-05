@@ -1,0 +1,33 @@
+/* Common panel styles */
+.panel {
+    display: flex;
+    flex-direction: column;
+    background: #1e1e1e;
+    overflow: hidden;
+}
+
+.panel-header {
+    padding: 4px 8px;
+    background: #252526;
+    border-bottom: 1px solid #333;
+    font-size: 11px;
+    text-transform: uppercase;
+}
+
+.panel-header h2 {
+  margin: 0;
+  font-size: 1em;
+  color: #cccccc;
+}
+
+.panel-content {
+    flex: 1;
+    overflow: auto;
+}
+
+.log-content,
+.stack-content,
+.source-content {
+  height: calc(100% - 37px);
+  overflow: auto;
+}
