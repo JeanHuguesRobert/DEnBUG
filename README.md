@@ -1,18 +1,17 @@
-# denbug
+# denbug - de&&bug()
 
-A hierarchical debugging and tracing library with advanced pattern matching and post-mortem analysis.
+A hierarchical tracing library with advanced filtering and post-mortem analysis.
 
 ## Features
 
-- 🌳 Hierarchical debug domains (`app:ui:button`, `app:api:auth`)
-- 🔍 Pattern matching with glob and recursive patterns (`app:**`, `ui:*:click`)
+- 🌳 Hierarchical trace domains (e.g. `app:ui:button`, `app:api:auth`)
+- 🔍 Glob-style matching for trace filtering (e.g. `app:*`, `ui:*:click`)
 - 📝 Automatic trace collection with stack traces
 - 🔄 Console method interception
 - 💾 Configuration persistence
 - 📊 Post-mortem analysis
 - 🔬 Trace filtering and search
-- 🎯 Echo domains for automatic logging
-- ⚡ High performance with large trace sets
+- ⚡ High performance, near zero-cost when trace disabled
 
 ## Installation
 
@@ -23,192 +22,165 @@ npm install denbug
 ## Quick Start
 
 ```javascript
-import debug from 'denbug';
+import trace from 'denbug';
 
-// Create debug domains
-const ui = debug.domain('app:ui');
-const api = debug.domain('app:api');
+// Use the de&&bug() idiom for near zero-cost trace calls.
+// For a trace domain "ui", the idiom is: ui_de&&bug_ui()
+let ui_de;
+const bug_ui = trace('app:ui').flag( v => ui_de );
+ui_de&&bug_ui( "button clicked")
 
-// Enable specific domains
-debug.enable('app:ui');
+// Enable specific domain
+trace.enable('app:ui');
 
-// Log messages
-ui('button clicked', { id: 'save-btn' }); // logged
-api('request failed', err);               // not logged
-
-// Enable all app domains
-debug.applyPattern('app:**');
-
-// Now both will log
-ui('form submitted');
-api('request success');
+// Disable a domain, short syntax
+bug_ui.disable();
+// Note: ui_de flag is now false
 ```
 
 ## Advanced Usage
 
-### Pattern Matching
+### Hierarchical Domains & State Methods
+
+You can inspect and modify the local state of a domain with the short syntax via `.state()`. For example:
 
 ```javascript
-// Enable multiple patterns
-debug.applyPatterns({
-    enabled: ['app:ui:**', 'app:api:auth:*'],
-    disabled: ['app:ui:debug']
-});
+const parent = trace.domain('parent');
+const child = trace.domain('parent:child');
 
-// Use glob patterns
-debug.applyPattern('*.error');    // enable all error domains
-debug.applyPattern('-test:*');    // disable all test domains
+console.log(child.state()); // true (initially)
+child.state(false);
+console.log(child.state()); // false now
 ```
 
-### Post-mortem Analysis
+You can also retrieve the effective state using `.enabled()` as a method:
 
 ```javascript
-// Load traces from storage/network
-const savedTraces = await fetchTraces();
-const traces = debug.loadTraces(savedTraces);
+console.log('Child effective state:', child.enabled()); // reflects effective state
+```
 
-// Filter traces
-const filtered = debug.filterTraces(traces, {
-    pattern: 'app:ui:**',        // only UI traces
-    enabledOnly: true,           // only from enabled domains
-    from: startTime,             // time range
-    to: endTime
+### Effective vs Local State
+
+Each domain has a local state and an effective state.  
+• The local state (set/get via `.state()`) indicates whether the domain itself is enabled or disabled.  
+• The effective state (retrieved via `.enabled()`) accounts for the domain’s local state as well as any state inherited from its parent domains. Thus, even if a domain's local state is true, its effective state will be false if one of its parent domains is disabled.
+
+For example:
+```javascript
+const parent = trace.domain('parent');
+const child = trace.domain('parent:child');
+
+// Initially, both local and effective states are true.
+console.log(child.state());      // Local state: true
+console.log(child.enabled());    // Effective state: true
+
+// Disabling the parent affects the child's effective state.
+trace.disable('parent');
+console.log(child.state());      // Local state remains true
+console.log(child.enabled());    // Effective state becomes false because the parent's state is false
+```
+
+### State Change Events
+
+Whenever the state of a domain changes, it impacts the effective state of its subdomains. The effective state of subdomains is updated, and an event is published. Additionally, a distinct state changed event is published when the local state changes.
+
+For example:
+```javascript
+const parent = trace.domain('parent');
+const child = trace.domain('parent:child');
+
+trace.subscribe((event, domain) => {
+    if (event === 'stateChanged') {
+        console.log(`State changed for domain: ${domain}`);
+    } else if (event === 'effectiveStateChanged') {
+        console.log(`Effective state changed for domain: ${domain}`);
+    }
 });
 
-// Analyze traces
-filtered.forEach(trace => {
-    const decoded = debug.decode(trace);
-    console.log(`${decoded.timestamp} [${decoded.domain}]`, ...decoded.args);
-    
-    // Stack trace analysis
-    decoded.stack.forEach(frame => {
-        console.log(`  at ${frame.function} (${frame.file}:${frame.line})`);
-    });
+trace.disable('parent'); // This will trigger effectiveStateChanged for 'parent' and 'parent:child'
+trace.state('parent:child', false); // This will trigger stateChanged for 'parent:child'
+```
+
+### Subdomain Creation
+
+You can create subdomains directly from an existing domain instance. For example:
+```javascript
+const root = trace.domain('root');
+const child = root.domain('child'); // equivalent to trace.domain('root:child')
+
+child('Subdomain trace message');
+console.log('Child effective state:', child.enabled());
+```
+
+### Trace Filtering
+
+Filter collected traces using glob-style patterns:
+```javascript
+const allTraces = trace.traces();
+const filtered = trace.filter(allTraces, {
+    pattern: 'app:ui:*', // filter traces from all subdomains of app:ui
+    enabledOnly: true
 });
+console.log(filtered);
+```
+
+### Post-Mortem Analysis
+
+Save and load configuration and inspect trace details:
+```javascript
+// Save current configuration
+const config = trace.save();
+console.log(config);
+
+// Later, load configuration
+trace.load(config);
+
+// Decode and analyze a trace
+const [firstTrace] = trace.traces();
+const decoded = trace.decode(firstTrace);
+console.log(decoded.timestamp, decoded.domain, decoded.args);
 ```
 
 ### Console Integration
 
+Intercept console methods to capture traces:
 ```javascript
-// Intercept console methods
-debug.installConsoleInterceptors();
+trace.intercept();
 
-// Regular console calls are now traced
-console.log('test');  // creates trace in 'log' domain
-console.error('oops'); // creates trace in 'error' domain
+// Regular console calls now generate traces in their respective domains
+console.log('This is a test');
 
-// Restore original console
-debug.restoreConsole();
-```
-
-### Configuration Management
-
-```javascript
-// Save current configuration
-const config = debug.saveConfig();
-localStorage.setItem('debug-config', JSON.stringify(config));
-
-// Load configuration
-const saved = JSON.parse(localStorage.getItem('debug-config'));
-debug.loadConfig(saved);
+// Restore original console functions
+trace.deintercept();
 ```
 
 ### Echo Domains
 
-Every domain automatically creates an echo domain that's always enabled:
+Every domain automatically creates an echo domain that commands a call to console.log.
+```javascript
+const app_auth_de&&bug_app_auth = trace.domain('app:auth');
+// 'app:auth:echo' is automatically created
+app_auth_de&&bug_app_auth('login failed');
+trace.domain('app:auth:echo')('alert');  // always logged
+```
+
+### Zero-Cost Debugging with Flags
+
+For the most concise style, simply use the short-circuit operator with the flag inlined. For example:
+```javascript
+let f = false;
+const bug__app_ui = trace.domain('app:ui').flag(() => f);
+f && bug__app_ui('button clicked');
++```
+Here, when f is false the trace call is completely skipped.
+
+### Publishing Events
+
+You can broadcast events to all subscribers using the `publish` method:
 
 ```javascript
-const auth = debug.domain('app:auth');
-
-// app:auth:echo is automatically created and enabled
-// Use it to ensure critical messages are always logged
-auth('login failed');  // only logged if app:auth is enabled
-debug.domain('app:auth:echo')('security alert');  // always logged
+trace.publish('customEvent', { data: 'example' });
 ```
-
-### Zero-Cost Debugging
-
-When using denbug in production, you can leverage JavaScript's short-circuit evaluation to achieve zero-cost debugging. Here's how:
-
-```js
-const de = require('denbug');
-de&&de.domain('app:startup')('Application starting...');
-```
-
-When `de` is undefined (for example, when the module is not included in production builds), the expression short-circuits at `de&&` and the debug function is never called or even constructed. This results in:
-
-- Zero runtime cost in production when `de` is undefined
-- No string concatenation
-- No function calls
-- No argument evaluation
-
-The same works with the demand API:
-
-```js
-const man = require('denbug').demand;
-man&&man('app:perf')('Performance check:', duration);
-```
-
-This pattern is particularly useful when you want to strip out all debugging code in production without using complex build tools or preprocessors.
-
-### Performance Comparison
-
-```js
-// Regular debug - always evaluates arguments
-debug('domain:name')('Some ' + expensive + ' string concatenation');
-
-// Zero-cost debug - nothing runs when de is undefined
-de&&de('domain:name')('Some ' + expensive + ' string concatenation');
-```
-
-> **Note**: The `&&` operator short-circuits evaluation, so if `de` is undefined (or falsy), nothing after the `&&` is executed, including string concatenations and function calls.
-
-### Zero-Cost Debugging
-
-Use the JavaScript && operator for zero-cost debugging in production:
-
-```javascript
-// Zero-cost trace - completely removed in production when domain is disabled
-domain('app:perf') && trace('expensive calculation', result);
-
-// Zero-cost assertion - no overhead when disabled
-domain('app:assert') && result === expected || throw new Error('mismatch');
-
-// Combine with logical OR for else conditions
-domain('app:debug') && validateInput(data) || defaultValue;
-
-// Use with async operations
-domain('app:network') && await validateResponse(res);
-```
-
-These patterns are completely removed by JavaScript engines and minifiers when the domain is disabled, resulting in zero runtime cost in production.
-
-## API Reference
-
-### Core
-- `domain(name: string): (...args: any[]) => void`
-- `enable(name: string): void`
-- `disable(name: string): void`
-- `state(name: string): boolean`
-
-### Pattern Matching
-- `applyPattern(pattern: string): void`
-- `applyPatterns(patterns: { enabled?: string[], disabled?: string[] }): void`
-
-### Trace Management
-- `traces(): RawTrace[]`
-- `loadTraces(traces: string | RawTrace[]): RawTrace[]`
-- `filterTraces(traces: RawTrace[], options?: TraceFilterOptions): RawTrace[]`
-- `decode(trace: RawTrace): DecodedTrace`
-
-### Configuration
-- `saveConfig(): Config`
-- `loadConfig(config: Config): void`
-- `configure(options: { maxTraces?: number }): void`
-
-### Console Integration
-- `installConsoleInterceptors(): void`
-- `restoreConsole(): void`
 
 ## License
 

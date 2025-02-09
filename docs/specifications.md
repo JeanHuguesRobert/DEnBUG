@@ -8,6 +8,8 @@ Denbug is a professional-grade debugging toolkit that extends the `debug` packag
 2. Visual debugging interface
 3. Time-travel debugging capabilities
 4. Rich stack trace analysis
+5. A dual-contracts methodology for runtime type and state validation
+6. Comprehensive tests that verify both runtime contract enforcement and functional correctness
 
 ### Deliverables
 1. Core Library Package (`denbug`)
@@ -21,6 +23,15 @@ Denbug is a professional-grade debugging toolkit that extends the `debug` packag
 ### 1. Core Library (`denbug`)
 
 #### Domain System
+- **Hierarchical Domains:**  
+  Domains are composed using colon-separated strings (e.g., `app:ui:button`). Parent domains propagate state to children.
+- **State Management:**  
+  Each domain:
+  - Has a *local enabled* state set by individual enable/disable commands.
+  - Computes an *effective enabled* state based on parent state.
+- **Echo Domains:**  
+  For every domain, a corresponding echo domain (suffixed with `:echo`) is automatically created to mirror console output.
+
 ```typescript
 interface DomainState {
     name: string;                           // Full domain path (e.g., "app:ui:button")
@@ -51,6 +62,15 @@ interface DomainHierarchy {
 ```
 
 #### Trace System
+- **Trace Structure:**  
+  Each trace captures:
+  - A unique ID and timestamp
+  - Domain name and arguments
+  - An error object for stack tracing
+  - Optional structured metadata for filtering (e.g., severity, tags)
+- **Trace Buffer Management:**  
+  A configurable ring buffer ensures memory is managed efficiently with a maximum trace count.
+
 ```typescript
 interface Trace {
     id: string;              // Unique identifier
@@ -97,6 +117,18 @@ interface TraceFilter {
     types?: ('log' | 'info' | 'warn' | 'error' | 'assert')[];
 }
 ```
+
+#### Dual Contracts/Tests Methodology
+- **Contracts Enforcement:**  
+  A runtime contracts flag (`contractsEnabled`) governs strict type and state validations:
+  - Errors are thrown for invalid domain names, non-boolean conditions in assertions, or improper trace data.
+  - When disabled (e.g., in production), these validations are relaxed.
+- **Testing Strategy:**  
+  The test suite employs a dual methodology:
+  1. **Contract Tests:** Validate that improper usage correctly throws errors when contracts are enabled.
+  2. **Functional Tests:** Confirm that all domain, trace, and state operations work reliably regardless of contracts.
+- **Benefits:**  
+  This approach ensures a robust development experience while enabling relaxed behavior in performance-sensitive environments.
 
 ### 2. Visual Interface (`@denbug/ui`)
 
@@ -220,6 +252,10 @@ interface AppState {
    - Theme customization guide
    - Performance optimization tips
    - Troubleshooting guide
+
+## TypeScript Definitions
+A complete set of TypeScript definitions is provided in:
+- /c:/tweesic/denbug/types/denbug.d.ts
 
 ## Delivery Milestones
 

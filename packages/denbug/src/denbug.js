@@ -1,12 +1,35 @@
 const crypto = require('crypto');
-const debug = require('debug');
+
+// Define contractsEnabled flag.
+let contractsEnabled = process.env.NODE_ENV !== 'production';
+
+const debug = Object.assign(function(name) {
+	// Factory that returns a debug function for a given domain.
+    // It prints messages via console.log when the domain is enabled.
+	return function (...args) {
+		if (debug.enabled(name)) {
+			console.log(`[${name}]`, ...args);
+		}
+	};
+}, {
+	_enabled: {},
+	enable(name) {
+		this._enabled[name] = true;
+	},
+	disable(name) {
+		this._enabled[name] = false;
+	},
+	enabled(name) {
+		return !!this._enabled[name];
+	}
+});
 
 // Global state
-const domains = new Map();
+const allDomains = new Map();
 const subscribers = new Set();
-const traces = [];
+const traceLog = [];  // Changed from traces to traceLog
 const config = { 
-    maxTraces: 1000,
+    maxTraces: 10000,
     version: '1.0.0'
 };
 
@@ -15,78 +38,92 @@ const config = {
 function createHierarchicalDomains(fullName) {
     const parts = fullName.split(':');
     let current = '';
+    
+    // Just create the domains, don't force enable
     parts.forEach(part => {
         current = current ? `${current}:${part}` : part;
-        if (!domains.has(current)) {
+        if (!allDomains.has(current)) {
             createDomain(current);
         }
     });
 }
 
+// In createDomain(), initialize effectiveEnabled based on parent's effective state.
 function createDomain(name) {
-    if (!domains.has(name)) {
-        // Create main domain
-        domains.set(name, {
+    if (!allDomains.has(name)) {
+        if (name.includes(':')) {
+            const parentName = name.split(':').slice(0, -1).join(':');
+            createDomain(parentName);
+        }
+        // Determine parent's effective state (default true)
+        let parentEffective = true;
+        const parts = name.split(':');
+        if (parts.length > 1) {
+            const parentName = parts.slice(0, -1).join(':');
+            parentEffective = allDomains.has(parentName) ? allDomains.get(parentName).effectiveEnabled : true;
+        }
+
+        // Create the domain with localEnabled true and effectiveEnabled computed from parent
+        allDomains.set(name, {
             setters: new Set(),
-            debugFn: debug(name)
+            debugFn: debug(name),
+            localEnabled: true,
+            effectiveEnabled: parentEffective && true
         });
-        
-        // Always create and enable echo domain for non-echo domains
+
+        const message = name.endsWith(':echo') 
+            ? `Echo domain created: ${name}` 
+            : `Domain created: ${name}`;
+        addTrace('system', [message]);
+
         if (!name.endsWith(':echo')) {
-            const echoDomain = `${name}:echo`;
-            if (!domains.has(echoDomain)) {
-                domains.set(echoDomain, {
-                    setters: new Set(),
-                    debugFn: debug(echoDomain)
-                });
-                // Enable echo domain immediately and ensure it stays enabled
-                debug.enable(echoDomain);
-            }
+            createDomain(`${name}:echo`);
         }
     }
-    return domains.get(name).debugFn;
+    return allDomains.get(name).debugFn;
 }
 
-function isEnabled(name) {
-    return debug.enabled(name);
+// Helper to extract parent name
+function getParentName(name) {
+    const parts = name.split(':');
+    if (parts.length === 1) return null;
+    return parts.slice(0, -1).join(':');
+}
+
+// Modified updateEffectiveStateRecursive: always propagate re-computation to children.
+function updateEffectiveStateRecursive(name) {
+    const domain = allDomains.get(name);
+    if (!domain) return;
+    const parentName = getParentName(name);
+    const parentEffective = parentName && allDomains.has(parentName)
+         ? allDomains.get(parentName).effectiveEnabled
+         : true;
+    const newEffective = domain.localEnabled && parentEffective;
+    if (domain.effectiveEnabled !== newEffective) {
+        domain.effectiveEnabled = newEffective;
+        notifySubscribers('effectiveStateChanged', name);
+        domain.setters.forEach(setter => setter(newEffective));
+    } else {
+        // Force update notification regardless, to ensure children re-evaluate.
+        domain.effectiveEnabled = newEffective;
+    }
+    // Always propagate to children.
+    allDomains.forEach((_, childName) => {
+        if (childName.startsWith(name + ':')) {
+            updateEffectiveStateRecursive(childName);
+        }
+    });
+}
+
+// Modified enabled() to return the domain's effective state.
+function enabled(name) {
+    const domain = allDomains.get(name);
+    if (!domain) return false;
+    return domain.effectiveEnabled;
 }
 
 function notifySubscribers(event, ...args) {
     subscribers.forEach(s => s(event, ...args));
-}
-
-function applyPattern(pattern) {
-    if (!pattern) return;
-    
-    const shouldDisable = pattern.startsWith('-');
-    const actualPattern = shouldDisable ? pattern.slice(1) : pattern;
-    
-    // Save echo domains for this pattern
-    const echoPattern = `${actualPattern}:echo`;
-    const matchingDomains = Array.from(domains.keys())
-        .filter(name => name.endsWith(':echo') && 
-            (name === echoPattern || 
-             (actualPattern.includes('*') && name.startsWith(actualPattern.replace(/\*/g, '')))));
-    
-    // Apply main pattern
-    if (shouldDisable) {
-        debug.disable(actualPattern);
-    } else {
-        debug.enable(actualPattern);
-    }
-
-    // Re-enable echo domains
-    matchingDomains.forEach(name => debug.enable(name));
-
-    // Create domain if needed
-    if (!actualPattern.includes('*') && !domains.has(actualPattern)) {
-        createDomain(actualPattern);
-    }
-
-    // Update setters
-    domains.forEach((domain, name) => {
-        domain.setters.forEach(setter => setter(debug.enabled(name)));
-    });
 }
 
 const originalConsole = {
@@ -94,116 +131,253 @@ const originalConsole = {
     info: console.info,
     warn: console.warn,
     error: console.error,
-    debug: console.debug
+    debug: console.debug,
+    assert: console.assert
 };
 
 function addTrace(domain, args) {
+    const possiblyStructured = args.find(arg => arg && arg.structured && typeof arg.structured === 'object');
     const trace = {
         timestamp: Date.now(),
         domain,
         args: Array.isArray(args) ? args : [args],
-        error: new Error()
+        error: new Error(),
+        structured: possiblyStructured ? possiblyStructured.structured : {}
     };
 
-    traces.push(trace);
-    while (traces.length > config.maxTraces) {
-        traces.shift();
+    traceLog.push(trace);
+    while (traceLog.length > config.maxTraces) {
+        traceLog.shift();
     }
     
     notifySubscribers('trace', trace);
     return trace;
 }
 
-function installConsoleInterceptors() {
-    const methods = ['log', 'info', 'warn', 'error', 'debug'];
+// New helper function to ensure a trace has a structured property.
+function parseStructuredTrace(trace) {
+    trace.structured = (trace.structured && typeof trace.structured === 'object')
+        ? trace.structured
+        : {};
+    return trace;
+}
+
+// New helper function to filter traces by a given key/value in the structured metadata.
+function filterStructuredTraces(traces, key, value) {
+    return traces.filter(trace => {
+        const st = trace.structured || {};
+        return st[key] === value;
+    });
+}
+
+function intercept() {
+    const methods = ['log', 'info', 'warn', 'error', 'debug', 'assert'];
     methods.forEach(method => {
         // Create domain for each console method
         createDomain(method);
+        
+        // Create echo domain for each console method
+        const echoDomainName = `${method}:echo`;
+        createDomain(echoDomainName);
+        
         console[method] = (...args) => {
-            if (isEnabled(method)) {
-                addTrace(method, args);
+            if (method === 'assert') {
+                const [condition, ...assertArgs] = args;
+                if (!condition) {
+                    if (enabled(method)) {
+                        addTrace(method, assertArgs);
+                    }
+                    if (enabled(method) || enabled(echoDomainName)) {
+                        originalConsole[method](...assertArgs);
+                    } else {
+                        originalConsole.assert(condition, ...assertArgs); // Ensure the original assert behavior
+                    }
+                }
+            } else {
+                if (enabled(method)) {
+                    addTrace(method, args);
+                }
+                
+                if (enabled(method) && enabled(echoDomainName)) {
+                    originalConsole[method](...args);
+                }
             }
-            originalConsole[method](...args);
         };
     });
 }
 
-function restoreConsole() {
+function deintercept() {
     Object.assign(console, originalConsole);
 }
 
 function demand(name) {
-    const domain = createDomain(name);
-    return (...args) => {
-        if (isEnabled(name)) {
-            return addTrace(name, args);
+    if (contractsEnabled && (!(typeof name === 'string' && name.trim() !== ''))) {
+        throw new Error('demand expects a non-empty domain name');
+    }
+    const domainFn = createDomain(name);
+    return (condition, ...args) => {
+        if (contractsEnabled && (typeof condition !== 'boolean')) {
+            throw new Error('demand requires a boolean condition');
+        }
+        if (!condition) {
+            const error = new Error('Assertion failed');
+            if (enabled(name)) {
+                addTrace(name, [...args, error]);
+                if (contractsEnabled && traceLog[traceLog.length - 1].domain !== name) {
+                    throw new Error('Post-condition: Trace domain mismatch');
+                }
+            }
+            if (enabled(name) || enabled(`${name}:echo`)) {
+                domainFn(...args, error);
+            }
+            throw error;
         }
     };
 }
 
-function saveConfig() {
-    const enabledDomains = Array.from(domains.entries())
-        .filter(([name]) => debug.enabled(name))
-        .map(([name]) => name);
-    const configToSave = {
+function save() {
+    return {
         version: '1.0.0',
         timestamp: Date.now(),
         maxTraces: config.maxTraces,
-        domains: enabledDomains
+        domains: Array.from(allDomains.entries()).map(([name, domain]) => ({
+            name,
+            localState: domain.localEnabled
+        }))
     };
-
-    return configToSave;
 }
 
-function loadConfig(saved) {
-    if (saved.maxTraces) config.maxTraces = saved.maxTraces;
-    
+function load(saved) {
+    if (contractsEnabled && (!saved || !Array.isArray(saved.domains))) {
+        throw new Error('load expects saved configuration with a domains array');
+    }
+    if (!saved || !Array.isArray(saved.domains)) {
+        throw new Error('Invalid configuration format');
+    }
+
+    config.maxTraces = saved.maxTraces || config.maxTraces;
+
     // Create all domains first
-    if (Array.isArray(saved.domains)) {
-        saved.domains.forEach(name => createDomain(name));
-    } else if (Array.isArray(saved.enabled)) {
-        saved.enabled.forEach(name => createDomain(name));
-    }
+    saved.domains.forEach(({ name }) => {
+        if (!allDomains.has(name)) {
+            createDomain(name);
+        }
+    });
 
-    // Then enable them
-    if (Array.isArray(saved.domains)) {
-        saved.domains.forEach(name => enable(name));
-    } else if (Array.isArray(saved.enabled)) {
-        saved.enabled.forEach(name => enable(name));
+    // Then set their states and recalculate effective state recursively
+    saved.domains.forEach(({ name, localState }) => {
+        const domain = allDomains.get(name);
+        if (domain) {
+            domain.localEnabled = !!localState;
+            notifySubscribers('stateChanged', name);
+            updateEffectiveStateRecursive(name);  // <-- Changed: forces proper effective state recalculation
+        }
+        if (contractsEnabled && domain && domain.localEnabled !== !!localState) {
+            throw new Error(`Post-condition: Domain ${name} state mismatch after load`);
+        }
+    });
+}
+
+// Updated enable() function: minimally flip local states in the chain from root to target
+function enable(input) {
+    if (!Array.isArray(input)) {
+        if (contractsEnabled && (!(typeof input === 'string' && input.trim() !== ''))) {
+            throw new Error('enable expects a non-empty string');
+        }
+    }
+    if (Array.isArray(input)) {
+        input.forEach(item => enable(item));
+        return;
+    }
+    const name = input;
+    const isNegative = name.startsWith('-');
+    const actualName = isNegative ? name.slice(1) : name;
+    if (!isNegative) {
+        let parentEffective = true; // For root assume parent effective true.
+        let chainName = '';
+        const parts = actualName.split(':');
+        for (const part of parts) {
+            chainName = chainName ? `${chainName}:${part}` : part;
+            if (!allDomains.has(chainName)) {
+                createDomain(chainName);
+            }
+            const domain = allDomains.get(chainName);
+            // If the domain is not locally true while parent is effectively enabled,
+            // update its local state minimally.
+            if (parentEffective && !domain.localEnabled) {
+                domain.localEnabled = true;
+                notifySubscribers('stateChanged', chainName);
+            }
+            // Force recomputation of the effective state for this domain.
+            const newEffective = domain.localEnabled && parentEffective;
+            if (domain.effectiveEnabled !== newEffective) {
+                domain.effectiveEnabled = newEffective;
+                notifySubscribers('effectiveStateChanged', chainName);
+                domain.setters.forEach(setter => setter(newEffective));
+            }
+            parentEffective = domain.effectiveEnabled;
+        }
+        // Propagate effective state changes (without altering local states) from the target down.
+        updateEffectiveStateRecursive(actualName);
+    } else {
+        // For negative input, use disable() logic.
+        if (!allDomains.has(actualName)) {
+            createDomain(actualName);
+        }
+        disable(actualName);
+    }
+    if (typeof input === 'string' && !input.startsWith('-') && contractsEnabled) {
+        if (!enabled(input)) {
+            throw new Error('Post-condition: Domain should be enabled');
+        }
     }
 }
 
-function enable(name) {
-    // Create domain if it doesn't exist
-    if (!domains.has(name)) {
-        createDomain(name);
+// Updated disable() function: only change the target's local state if needed
+function disable(input) {
+    if (!Array.isArray(input)) {
+        if (contractsEnabled && (!(typeof input === 'string' && input.trim() !== ''))) {
+            throw new Error('disable expects a non-empty string');
+        }
     }
-    
-    debug.enable(name);
-    // Notify setters
-    if (domains.has(name)) {
-        domains.get(name).setters.forEach(setter => setter(debug.enabled(name)));
+    if (Array.isArray(input)) {
+        input.forEach(item => disable(item));
+        return;
+    }
+    if (!allDomains.has(input)) {
+        createDomain(input);
+    }
+    const domain = allDomains.get(input);
+    // Compute parent's effective state.
+    const parentName = getParentName(input);
+    const parentEffective = parentName && allDomains.has(parentName)
+         ? allDomains.get(parentName).effectiveEnabled
+         : true;
+    // If effective state is true (i.e. domain.localEnabled && parentEffective)
+    // then flip the target's local state to false.
+    if (domain.localEnabled && parentEffective) {
+        domain.localEnabled = false;
+        notifySubscribers('stateChanged', input);
+    }
+    // Propagate effective state changes to children (without altering their local states).
+    updateEffectiveStateRecursive(input);
+    if (typeof input === 'string' && contractsEnabled) {
+        if (enabled(input)) {
+            throw new Error('Post-condition: Domain should be disabled');
+        }
     }
 }
 
-function disable(name) {
-    debug.disable(name);
-    // Notify setters of current state
-    if (domains.has(name)) {
-        domains.get(name).setters.forEach(setter => setter(false));
-    }
-}
-
-function filterTraces(rawTraces, options = {}) {
+function filter(rawTraces, options = {}) {
     const filtered = rawTraces.filter(trace => {
         // Filter by enabled domains
-        if (options.enabledOnly && !isEnabled(trace.domain)) {
+        if (options.enabledOnly && !enabled(trace.domain)) {
             return false;
         }
         // Filter by domain pattern
         if (options.pattern) {
             const regex = new RegExp(options.pattern.replace(/\*/g, '.*'));
-            return regex.test(trace.domain);
+            if (!regex.test(trace.domain)) return false;
         }
         // Filter by time range
         if (options.from && trace.timestamp < options.from) {
@@ -212,13 +386,20 @@ function filterTraces(rawTraces, options = {}) {
         if (options.to && trace.timestamp > options.to) {
             return false;
         }
+        // New filtering on structured metadata
+        if (options.structured && typeof options.structured === 'object') {
+            for (const key in options.structured) {
+                if (trace.structured[key] !== options.structured[key]) {
+                    return false;
+                }
+            }
+        }
         return true;
     });
-
     return filtered;
 }
 
-function loadTraces(serializedTraces) {
+function post(serializedTraces) {
     if (typeof serializedTraces === 'string') {
         try {
             serializedTraces = JSON.parse(serializedTraces);
@@ -238,66 +419,119 @@ function loadTraces(serializedTraces) {
 
     // Create domains before processing traces
     uniqueDomains.forEach(domain => {
-        if (!domains.has(domain)) {
+        if (!allDomains.has(domain)) { 
             createDomain(domain);
         }
     });
 
-    // Validate and reconstruct traces
-    return serializedTraces.map(trace => ({
-        timestamp: trace.timestamp || Date.now(),
-        domain: trace.domain || 'unknown',
-        args: Array.isArray(trace.args) ? trace.args : [trace.args],
-        error: trace.error || new Error()
-    }));
+    // Reconstruct traces while keeping additional properties intact
+    return serializedTraces.map(trace => {
+        return {
+            ...trace,
+            timestamp: trace.timestamp || Date.now(),
+            domain: trace.domain || 'unknown',
+            args: Array.isArray(trace.args) ? trace.args : [trace.args],
+            error: trace.error || new Error('No error info')
+        };
+    });
 }
 
 function attachFlag(bug, name, setter) {
-    if (typeof setter !== 'function') {
-        throw new Error('flag() requires a setter function');
+    if (contractsEnabled && (typeof setter !== 'function')) {
+        throw new Error('attachFlag requires a setter function');
     }
     // Set initial state
     setter(debug.enabled(name));
     // Add setter to domain
-    domains.get(name).setters.add(setter);
+    allDomains.get(name).setters.add(setter);
+    const domainObj = allDomains.get(name);
+    if (contractsEnabled && !domainObj.setters.has(setter)) {
+        throw new Error('Post-condition: Flag setter not attached');
+    }
     return bug;
 }
 
 function domain(name) {
-    const bug = createDomain(name);
-    const debugFn = (...args) => {
-        if (debug.enabled(name)) {
-            return addTrace(name, args);
+    if (contractsEnabled && (!(typeof name === 'string' && name.trim() !== ''))) {
+        throw new Error('Domain name must be a non-empty string');
+    }
+    createHierarchicalDomains(name);
+    
+    const debugFn = createDomain(name);
+    if (contractsEnabled && !allDomains.has(name)) {
+        throw new Error('Post-condition: Domain creation failed');
+    }
+    const isEchoDomain = name.endsWith(':echo');
+    const parentName = isEchoDomain ? name.slice(0, -5) : null;
+    
+    const enhancedDebugFn = (...args) => {
+        if (enabled(name)) {
+            addTrace(name, args);
+            debugFn(...args); // Always call debugFn when enabled
         }
     };
     
-    // Add flag support
-    debugFn.flag = (setter) => {
-        if (typeof setter !== 'function') {
+    enhancedDebugFn.enabled = () => enabled(name);
+    
+    enhancedDebugFn.flag = (setter) => {
+        if (contractsEnabled && (typeof setter !== 'function')) {
             throw new Error('flag() requires a setter function');
         }
-        setter(debug.enabled(name));
-        domains.get(name).setters.add(setter);
-        return debugFn;
+        setter(enabled(name)); // initial update
+        allDomains.get(name).setters.add(setter);
+        return enhancedDebugFn;
     };
     
-    return debugFn;
+    enhancedDebugFn.enable = () => {
+        enable(name);
+        return enhancedDebugFn;
+    };
+    
+    enhancedDebugFn.disable = () => {
+        disable(name);
+        return enhancedDebugFn;
+    };
+
+    enhancedDebugFn.state = (newState) => {
+        if (newState === undefined) {
+            return state(name);
+        } else {
+            state(name, newState);
+            return enhancedDebugFn;
+        }
+    };
+
+    enhancedDebugFn.domain = (subName) => domain(name + ':' + subName);
+
+    return enhancedDebugFn;
 }
 
 function flag(setter) {
+    if (contractsEnabled && (typeof setter !== 'function')) {
+        throw new Error('flag() requires a setter function');
+    }
     return (name) => domain(name).flag(setter);
 }
 
-const denbug = {
-    domain,
-    flag,
-    enable,
-    disable,
-    configure: options => {
-        if (options.maxTraces) config.maxTraces = options.maxTraces;
-    },
-    traces: () => [...traces],
-    decode: trace => ({
+function configure(options) {
+    if (options.maxTraces !== undefined) {
+        if (typeof options.maxTraces !== 'number' || options.maxTraces < 0) {
+            throw new Error('maxTraces must be a non-negative number');
+        }
+        config.maxTraces = options.maxTraces;
+    }
+}
+
+function traces(){
+    return [...traceLog];  // Changed from traces to traceLog
+}
+
+function clear() {
+    traceLog.length = 0;
+}
+
+function decode( trace ){
+    return ({
         id: crypto.randomUUID(),
         timestamp: new Date(trace.timestamp).toISOString(),
         domain: trace.domain,
@@ -317,62 +551,130 @@ const denbug = {
                 };
             })
             .filter(Boolean)
-    }),
-    domains: () => Array.from(domains.keys()),
-    state: debug.enabled,
-    effectiveState: debug.enabled,
-    subscribe: subscriber => {
-        subscribers.add(subscriber);
-        return () => subscribers.delete(subscriber);
-    },
-    applyPattern,
-    applyPatterns: patterns => {
-        // First create all domains to ensure echo domains exist
-        if (Array.isArray(patterns)) {
-            patterns.forEach(p => {
-                const name = p.startsWith('-') ? p.slice(1) : p;
-                if (!name.includes('*')) createDomain(name);
-            });
-        } else if (patterns?.enabled || patterns?.disabled) {
-            if (patterns.enabled) {
-                patterns.enabled.forEach(p => {
-                    if (!p.includes('*')) createDomain(p);
-                });
-            }
-            if (patterns.disabled) {
-                patterns.disabled.forEach(p => {
-                    if (!p.includes('*')) createDomain(p);
-                });
-            }
-        }
+    })
+}
 
-        // Save echo domain states
-        const echoDomains = Array.from(domains.keys())
-            .filter(name => name.endsWith(':echo'));
-        
-        // Reset patterns but preserve echo domains
-        debug.disable('*');
-        echoDomains.forEach(name => debug.enable(name));
-        
-        // Apply new patterns
-        if (Array.isArray(patterns)) {
-            patterns.forEach(p => applyPattern(p));
-        } else if (typeof patterns === 'object') {
-            if (patterns.enabled) {
-                patterns.enabled.forEach(p => applyPattern(p));
+function domains() {
+    return Array.from(allDomains.keys());
+}
+
+function subscribe(subscriber) {
+    subscribers.add(subscriber);
+    return () => subscribers.delete(subscriber);
+}
+
+function publish(event, ...args) {
+    notifySubscribers(event, ...args);
+}
+
+function updateChildDebugState(parentName) {
+    allDomains.forEach((domain, name) => {
+        if (name.startsWith(parentName + ':')) {
+            // Check if all parents in the chain are enabled
+            const parentEnabled = parentDomainsEnabled(name);
+            const newState = parentEnabled && domain.localEnabled;
+
+            // Update debug state based on both local and parent states
+            if (newState) {
+                debug.enable(name);
+            } else {
+                debug.disable(name);
             }
-            if (patterns.disabled) {
-                patterns.disabled.forEach(p => applyPattern(`-${p}`));
-            }
+            
+            notifySubscribers('effectiveStateChanged', name);
+            domain.setters.forEach(setter => setter(newState));
         }
-    },
-    installConsoleInterceptors,
-    restoreConsole,
+    });
+}
+
+function getEffectiveState(name) {
+    return debug.enabled(name);
+}
+
+// In state(), after updating localEnabled call updateEffectiveStateRecursive().
+function state(name, newState) {
+    if (contractsEnabled && (!(typeof name === 'string' && name.trim() !== ''))) {
+        throw new Error('state expects a non-empty domain name');
+    }
+    const domain = allDomains.get(name);
+    if (newState === undefined) {
+        // Removed the assert-like check to allow returning undefined for non-existing domains.
+        return domain ? domain.localEnabled : undefined;
+    }
+    const previous = domain.localEnabled;
+    domain.localEnabled = !!newState;
+    if (previous !== domain.localEnabled) {
+        notifySubscribers('stateChanged', name);
+        updateEffectiveStateRecursive(name);
+    }
+    const result = domain.debugFn;
+    if (contractsEnabled && domain.localEnabled !== !!newState) {
+        throw new Error('Post-condition: Local state not updated correctly');
+    }
+    return result;
+}
+
+function notifyEffectiveStateChanges(name) {
+    // Notify about this domain's effective state change
+    notifySubscribers('effectiveStateChanged', name);
+    
+    // Notify about children's effective state changes
+    allDomains.forEach((_, childName) => {
+        if (childName.startsWith(name + ':')) {
+            notifySubscribers('effectiveStateChanged', childName);
+        }
+    });
+}
+
+function parentDomainsEnabled(name) {
+    const parts = name.split(':');
+    let current = '';
+    for (let i = 0; i < parts.length - 1; i++) {
+        current = current ? `${current}:${parts[i]}` : parts[i];
+        const parentDomain = allDomains.get(current);
+        if (!parentDomain || !parentDomain.localEnabled) {
+            return false;
+        }
+    }
+    return true;
+}
+
+function setContractsEnabled(value) {
+    contractsEnabled = !!value;
+}
+
+const denbug = {
+    domain,
+    flag,
+    enable,
+    disable,
+    configure,
+    traces,
+    clear,
+    decode,
+    domains,
+    state,
+    enabled,
+    subscribe,
+    publish,
+    intercept,
+    deintercept,
     demand,
-    saveConfig,
-    loadConfig,
-    filterTraces,
-    loadTraces
+    save,
+    load,
+    filter,
+    post,
+    // New reset function for testing purposes
+    __reset__: function() {
+        allDomains.clear();
+        traceLog.length = 0;
+        subscribers.clear();
+    },
+    // New contracts control function.
+    setContractsEnabled,
+    // Attach helper functions to the denbug object.
+    parseStructuredTrace,
+    filterStructuredTraces
 };
 
 module.exports = denbug;
