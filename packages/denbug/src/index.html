@@ -1,0 +1,32 @@
+<!-- filepath: /workspaces/DEnBUG/packages/denbug/src/index.html -->
+<script>
+    if (window.DENBUG_ENABLE_TELEMETRY === true) {
+        import('@opentelemetry/api').then(api => {
+            import('@opentelemetry/sdk-trace-web').then(sdk => {
+                const { WebTracerProvider } = sdk;
+                const { ConsoleSpanExporter, SimpleSpanProcessor } = sdk;
+                const { trace } = api;
+
+                // Créer un fournisseur de trace
+                const provider = new WebTracerProvider();
+
+                // Configurer l'exportateur de console
+                const exporter = new ConsoleSpanExporter();
+
+                // Ajouter le processeur de span
+                provider.addSpanProcessor(new SimpleSpanProcessor(exporter));
+
+                // Enregistrer le fournisseur
+                provider.register();
+
+                // Obtenir un traceur
+                const tracer = trace.getTracer('example-tracer');
+
+                // Exemple d'utilisation du traceur
+                const span = tracer.startSpan('example-span');
+                console.log('Hello, OpenTelemetry!');
+                span.end();
+            });
+        });
+    }
+</script>
