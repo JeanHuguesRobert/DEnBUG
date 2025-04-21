@@ -255,7 +255,7 @@ interface AppState {
 
 ## TypeScript Definitions
 A complete set of TypeScript definitions is provided in:
-- /c:/tweesic/denbug/types/denbug.d.ts
+- /c:/tweesic/denbug/packages/denbug/types/denbug.d.ts
 
 ## Delivery Milestones
 

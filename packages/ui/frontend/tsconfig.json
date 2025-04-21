@@ -2,11 +2,7 @@
   "compilerOptions": {
     "target": "ESNext",
     "useDefineForClassFields": true,
-    "lib": [
-      "DOM",
-      "DOM.Iterable",
-      "ESNext"
-    ],
+    "lib": ["DOM", "DOM.Iterable", "ESNext"],
     "allowJs": false,
     "skipLibCheck": true,
     "esModuleInterop": true,
@@ -21,30 +17,13 @@
     "jsx": "react-jsx",
     "baseUrl": ".",
     "paths": {
-      "denbug": [
-        "../denbug"
-      ],
-      "contexts/*": [
-        "src/contexts/*"
-      ],
-      "components/*": [
-        "src/components/*"
-      ],
-      "@/*": [
-        "src/*"
-      ]
+      "denbug": ["../../denbug"],
+      "@/*": ["./src/*"],
+      "@components/*": ["./src/components/*"],
+      "@contexts/*": ["./src/contexts/*"]
     },
-    "types": [
-      "jest",
-      "node"
-    ],
-    "outDir": "./dist"
+    "types": ["jest", "node"]
   },
-  "include": [
-    "src/**/*",
-    "server/**/*"
-  ],
-  "exclude": [
-    "node_modules"
-  ]
+  "include": ["src/**/*"],
+  "exclude": ["node_modules"]
 }

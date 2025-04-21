@@ -15,6 +15,12 @@ export interface Trace {
     args: any[];
     error: Error;
     structured: Record<string, any>;
+    stack?: Array<{
+        function: string;
+        file: string;
+        line: number;
+        column: number;
+    }>;
 }
 
 export interface TraceFilter {
@@ -27,6 +33,7 @@ export interface TraceFilter {
 
 export interface Denbug {
     domain(name: string): Denbug;
+    trace(event: string, data: any): void;
     flag(setter: (enabled: boolean) => void): (domain: string) => Denbug;
     enable(name: string | string[]): void;
     disable(name: string | string[]): void;
@@ -53,6 +60,7 @@ export interface Denbug {
     parseStructuredTrace(trace: Trace): Trace;
     filterStructuredTraces(traces: Trace[], key: string, value: any): Trace[];
     setContractsEnabled(value: boolean): void;
+    domains(): string[]; // <-- Added method to list domain names
 }
 
 declare const denbug: Denbug;

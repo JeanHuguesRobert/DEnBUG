@@ -2,8 +2,16 @@
   "name": "denbug",  
   "version": "1.0.0",  
   "description": "Enhanced JavaScript Execution Tracing",
-  "main": "src/denbug.js",  
-  "types": "src/denbug.d.ts",  
+  "main": "dist/denbug.js",  
+  "module": "dist/denbug.js",  
+  "exports": {
+    ".": {
+      "import": "./dist/denbug.js",
+      "require": "./dist/denbug.js",
+      "default": "./dist/denbug.js"
+    }
+  },
+  "types": "types/denbug.d.ts",  
   "scripts": {    
     "build": "tsc",    
     "test": "jest",    

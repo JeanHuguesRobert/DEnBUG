@@ -54,7 +54,6 @@ export const DebugProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const [currentTraceIndex, setCurrentTraceIndex] = useState<number>(-1);
   const [isFollowing, setIsFollowing] = useState<boolean>(false);
-
   const playbackTimer = useRef<number>();
 
   const addTrace = useCallback((trace: Trace) => {
@@ -130,14 +129,13 @@ export const DebugProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         window.clearInterval(playbackTimer.current);
       }
     };
-  }, [state.isPlaying, state.playbackSpeed]);
+  }, [state.isPlaying, state.playbackSpeed, stopPlayback]);
 
   useEffect(() => {
     const debuggerInstance = createDebugger();
     const unsubscribe = debuggerInstance.subscribe((event, ...args) => {
       if (event === 'domains') {
-        // Removed call to updateDomains(args[0]);
-        // You may process domain updates here if needed.
+        // Domain updates can be processed here if needed
       }
     });
     return () => unsubscribe();

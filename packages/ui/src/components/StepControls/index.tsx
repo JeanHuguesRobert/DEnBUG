@@ -1,5 +1,5 @@
 import React from 'react';
-import { useDebug } from '../../context/DebugContext';
+import { useDebug } from '../../contexts/DebugContext';
 import './StepControls.css';
 
 export const StepControls: React.FC = () => {

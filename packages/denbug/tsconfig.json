@@ -8,11 +8,12 @@
         "esModuleInterop": true,
         "types": ["jest", "node"],
         "skipLibCheck": true,
-        "moduleResolution": "node"
+        "moduleResolution": "node",
+        "allowJs": true
     },
     "include": [
         "src/**/*",
-        "src/test/**/*"
+        "types/**/*"
     ],
     "exclude": [
         "node_modules",

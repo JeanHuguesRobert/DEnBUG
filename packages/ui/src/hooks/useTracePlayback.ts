@@ -9,7 +9,8 @@ export const useTracePlayback = () => {
     stopPlayback, 
     setPlaybackSpeed,
     selectedTrace,
-    traces
+    traces,
+    setSelectedTrace
   } = useDebug();
 
   const canPlay = traces.length > 0;
@@ -21,7 +22,7 @@ export const useTracePlayback = () => {
     const currentIndex = traces.indexOf(selectedTrace);
     const nextTrace = traces[currentIndex + 1];
     if (nextTrace) {
-      selectTrace(nextTrace);
+      setSelectedTrace(nextTrace);
     }
   }, [traces, selectedTrace, canStepForward]);
 
@@ -30,7 +31,7 @@ export const useTracePlayback = () => {
     const currentIndex = traces.indexOf(selectedTrace);
     const prevTrace = traces[currentIndex - 1];
     if (prevTrace) {
-      selectTrace(prevTrace);
+      setSelectedTrace(prevTrace);
     }
   }, [traces, selectedTrace, canStepBack]);
 

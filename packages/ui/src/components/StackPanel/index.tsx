@@ -1,23 +1,22 @@
-import React from 'react';
-import { useEffect, useState } from 'react';
-import { useDebug } from '../../context/DebugContext';
-import { decodeStackFrames } from '../../lib/sourceMapService';
+import React, { useEffect, useState } from 'react';
+import { useDebug } from '../../contexts/DebugContext';
+// Corrected the relative path to decodeStackFrames from lib folder in the project root.
+import { decodeStackFrames } from '../../../../../lib/sourceMapService';
 import './StackPanel.css';
 
 export const StackPanel: React.FC = () => {
-    const { traces, currentTraceIndex, selectedStackFrame, setSelectedStackFrame } = useDebug();
+    const { traces, currentTraceIndex, setSelectedStackFrame } = useDebug();
     const [decodedFrames, setDecodedFrames] = useState<any[]>([]);
 
     useEffect(() => {
-        const currentTrace = traces[currentTraceIndex];
+        const currentTrace = traces[currentTraceIndex!];
         if (!currentTrace?.stack) {
             setDecodedFrames([]);
             return;
         }
-
         decodeStackFrames(currentTrace.stack)
-            .then(frames => setDecodedFrames(frames))
-            .catch(err => console.error('Failed to decode frames:', err));
+            .then((frames: any[]) => setDecodedFrames(frames))
+            .catch((err: any) => console.error('Failed to decode frames:', err));
     }, [traces, currentTraceIndex]);
 
     if (!decodedFrames.length) {
@@ -35,16 +34,14 @@ export const StackPanel: React.FC = () => {
             {decodedFrames.map((frame, index) => (
                 <div 
                     key={index}
-                    className={`stack-frame ${selectedStackFrame === index ? 'selected' : ''}`}
+                    className={`stack-frame`}
                     onClick={() => setSelectedStackFrame(index)}
                 >
                     <span className="frame-function">{frame.function}</span>
                     <span className="frame-location">
                         {frame.file}:{frame.line}
                     </span>
-                    {frame.code && (
-                        <pre className="frame-code">{frame.code}</pre>
-                    )}
+                    {frame.code && <pre className="frame-code">{frame.code}</pre>}
                 </div>
             ))}
         </div>

@@ -1,9 +1,9 @@
 import React from 'react';
-import { useDebug } from '../../context/DebugContext';
+import { useDebug } from '../../contexts/DebugContext';
 import './DebugControls.css';
 
 export const DebugControls: React.FC = () => {
-  const { 
+  const {
     currentTraceIndex,
     traces,
     setCurrentTrace,
@@ -44,18 +44,18 @@ export const DebugControls: React.FC = () => {
         >⏭️</button>
 
         <span className="trace-position">
-          Trace {currentTraceIndex + 1} of {traces.length}
+          Trace {currentTraceIndex! + 1} of {traces.length}
         </span>
       </div>
 
-      {traces[currentTraceIndex] && (
+      {traces[currentTraceIndex!] && (
         <div className="current-trace">
           <div className="trace-info">
-            <span className="domain">{traces[currentTraceIndex].domain}</span>
-            <span className="args">{JSON.stringify(traces[currentTraceIndex].args)}</span>
+            <span className="domain">{traces[currentTraceIndex!].domain}</span>
+            <span className="args">{JSON.stringify(traces[currentTraceIndex!].args)}</span>
           </div>
           <div className="stack-frames">
-            {traces[currentTraceIndex].stack.map((frame, i) => (
+            {(traces[currentTraceIndex!].stack ?? []).map((frame: any, i: number) => (
               <div 
                 key={i}
                 className={`stack-frame ${selectedStackFrame === i ? 'selected' : ''}`}

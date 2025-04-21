@@ -1,6 +1,7 @@
 import React from 'react';
 import { Box, List, ListItem, ListItemText, Typography } from '@mui/material';
 import { useDebug } from '../../contexts/DebugContext';
+import type { Trace } from 'denbug';
 
 export interface StackFrame {
   function: string;
@@ -9,8 +10,12 @@ export interface StackFrame {
   column: number;
 }
 
-export const StackPanel: React.FC = () => {
-  const { selectedTrace, selectedStackFrame, selectStackFrame } = useDebug();
+export interface TraceWithStack extends Trace {
+  stack?: StackFrame[];
+}
+
+export const StackPanel: React.FC<{ selectedTrace: TraceWithStack | null }> = ({ selectedTrace }) => {
+  const { selectedStackFrame, selectStackFrame } = useDebug();
 
   if (!selectedTrace?.stack) {
     return (
@@ -22,7 +27,7 @@ export const StackPanel: React.FC = () => {
 
   return (
     <List dense>
-      {selectedTrace.stack.map((frame, index) => (
+      {(selectedTrace.stack as StackFrame[]).map((frame: StackFrame, index: number) => (
         <ListItem 
           key={`${frame.file}:${frame.line}:${frame.column}`}
           button

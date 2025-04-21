@@ -16,10 +16,13 @@ import {
   Code as CodeIcon,
   PlayCircleOutline as PlayIcon
 } from '@mui/icons-material';
-import { DebugContext } from '../context/DebugContext';
+import { DebugContext } from '../../contexts/DebugContext';
 
 export const FilterBar: React.FC = () => {
-  const { filters, setFilters } = useContext(DebugContext);
+  const { filters, setFilters } = useContext(DebugContext) as {
+    filters: any;
+    setFilters: (f: any) => void;
+  };
 
   const handleConsoleToggle = (method: keyof typeof filters.console) => {
     setFilters({

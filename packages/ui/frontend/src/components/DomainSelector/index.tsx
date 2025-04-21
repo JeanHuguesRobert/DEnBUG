@@ -6,7 +6,6 @@ import './DomainSelector.css';
 interface DomainNode {
     name: string;
     children?: DomainNode[];
-    isExpanded?: boolean;
 }
 
 export const DomainSelector: React.FC = () => {
@@ -14,7 +13,6 @@ export const DomainSelector: React.FC = () => {
     const [expandedDomains, setExpandedDomains] = useState<Set<string>>(new Set());
     const [, forceUpdate] = useState({});
 
-    // Subscribe to domain changes to trigger re-render
     useEffect(() => {
         const unsubscribe = denbug.subscribe(() => {
             forceUpdate({});
@@ -22,7 +20,6 @@ export const DomainSelector: React.FC = () => {
         return () => unsubscribe();
     }, []);
 
-    // Build domain tree directly from denbug
     const buildDomainTree = (): DomainNode[] => {
         const allDomains: string[] = denbug.domains();
         const filtered = allDomains.filter((name: string) => !name.endsWith('.echo'));
@@ -32,9 +29,9 @@ export const DomainSelector: React.FC = () => {
         filtered.forEach((name: string) => {
             const node: DomainNode = { name, children: [] };
             domainMap[name] = node;
-            const parts = name.split('.');
+            const parts = name.split(':');
             if (parts.length > 1) {
-                const parentName = parts.slice(0, -1).join('.');
+                const parentName = parts.slice(0, -1).join(':');
                 if (domainMap[parentName]) {
                     domainMap[parentName].children!.push(node);
                     return;
@@ -123,7 +120,6 @@ export const DomainSelector: React.FC = () => {
                 />
                 <button
                     onClick={() => {
-                        // Expand/Collapse all
                         expandedDomains.size === 0
                             ? setExpandedDomains(new Set(denbug.domains()))
                             : setExpandedDomains(new Set());

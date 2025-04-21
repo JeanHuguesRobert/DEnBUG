@@ -1,6 +1,7 @@
 import React, { useRef, useEffect } from 'react';
-import { useDebug } from '../../context/DebugContext';
+import { useDebug } from '../../contexts/DebugContext';
 import './TracePanel.css';
+import type { Trace } from 'denbug';
 
 export const TracePanel: React.FC = () => {
     const { 
@@ -13,11 +14,7 @@ export const TracePanel: React.FC = () => {
     // Add more detailed logging
     console.log('[TracePanel] Rendering:', { 
         hasTraces: traces && traces.length > 0,
-        traces: traces?.map(t => ({ 
-            id: t.id, 
-            domain: t.domain,
-            args: t.args 
-        })),
+        traces: formatTraces(traces),
         currentTrace: currentTraceIndex,
         following: isFollowing
     });
@@ -52,7 +49,7 @@ export const TracePanel: React.FC = () => {
                 </div>
             )}
             <div ref={contentRef} className="trace-list">
-                {traces.map((trace, index) => (
+                {traces.map((trace: Trace, index: number) => (
                     <div 
                         key={trace.id}
                         className={`trace-item ${currentTraceIndex === index ? 'selected' : ''}`}
@@ -70,4 +67,14 @@ export const TracePanel: React.FC = () => {
             </div>
         </div>
     );
+};
+
+const formatTraces = (traces: Trace[] | undefined) => {
+    return {
+        traces: traces?.map((t: Trace) => ({
+            id: t.id, 
+            domain: t.domain,
+            args: t.args 
+        }))
+    };
 };

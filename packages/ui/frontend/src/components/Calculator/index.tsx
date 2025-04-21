@@ -17,17 +17,15 @@ denbug.flag(enabled => { mem_de = enabled })('mem');
 type NumberBase = 'dec' | 'hex' | 'bin';
 
 export const Calculator: React.FC = () => {
-  const [stack, setStack] = useState<string[]>(['0']);  // The stack
-  const [input, setInput] = useState('0');              // Current input buffer
+  const [stack, setStack] = useState<string[]>(['0']);
+  const [input, setInput] = useState('0');
   const [base, setBase] = useState<NumberBase>('dec');
   const [isVisible, setIsVisible] = useState(true);
 
   useEffect(() => {
-    // Enable calculator domains
     denbug.enable("ui");
     denbug.enable("calc");
     denbug.enable("mem");
-    // Enable console logging
     denbug.enable("de&&bug.console");
     
     return () => {
@@ -36,7 +34,7 @@ export const Calculator: React.FC = () => {
         denbug.disable("mem");
         denbug.disable("de&&bug.console");
     };
-}, []);
+  }, []);
 
   const formatNumber = (num: number): string => {
     ui_de && bug_ui.trace("format", { num, base });
@@ -54,55 +52,59 @@ export const Calculator: React.FC = () => {
     calc_de && bug_calc.trace("parse", { input, base });
     if (input.startsWith('0x')) return parseInt(input.slice(2), 16);
     if (input.startsWith('0b')) return parseInt(input.slice(2), 2);
-    return parseInt(input, 10);
+    return parseFloat(input);
+  };
+
+  const handleBaseChange = (newBase: NumberBase) => {
+    calc_de && bug_calc.trace("baseChange", { from: base, to: newBase });
+    setBase(newBase);
+    const num = parseInput(input);
+    setInput(formatNumber(num));
+    setStack(stack.map(item => formatNumber(parseInput(item))));
+  };
+
+  const appendDigit = (digit: string) => {
+    calc_de && bug_calc.trace("appendDigit", { digit });
+    if (input === '0') {
+      setInput(digit);
+    } else {
+      setInput(input + digit);
+    }
   };
 
   const pushToStack = () => {
-    calc_de && bug_calc.trace("stack.push", { value: input });
-    setStack(prev => [...prev, input]);
-    setInput('0');
+    calc_de && bug_calc.trace("push", { value: input });
+    if (input !== '0') {
+      setStack([...stack, input]);
+      setInput('0');
+    }
   };
 
   const calculate = (op: string) => {
-    calc_de && bug_calc.trace("operation", { op, stack, input });
-    
+    calc_de && bug_calc.trace("calculate", { op });
+    const b = parseInput(input);
     const newStack = [...stack];
-    const b = parseInput(input);  // Current input is always the second operand
 
-    switch(op) {
-      case 'NOT':  // Unary operator
-        setInput(formatNumber(~b));
-        break;
-        
-      case 'LSH': case 'RSH':  // Unary shift operators
-        setInput(formatNumber(op === 'LSH' ? b << 1 : b >> 1));
+    switch (op) {
+      case 'C':  // Clear
+        setInput('0');
+        setStack(['0']);
         break;
 
-      case 'AND': case 'OR': case 'XOR':  // Binary operators
-        if (newStack.length < 1) return;  // Need at least one value on stack
-        const a = parseInput(newStack.pop()!);
-        const result = op === 'AND' ? a & b :
-                      op === 'OR'  ? a | b :
-                                    a ^ b;
-        setInput(formatNumber(result));
-        break;
-
-      case 'DUP':  // Duplicate top stack value
+      case 'DUP':  // Duplicate top item
         if (input !== '0') {  // If there's input, push it
-          newStack.push(input);
-        } else if (newStack.length > 0) {  // Otherwise duplicate top of stack
-          newStack.push(newStack[newStack.length - 1]);
+          pushToStack();
+        } else if (newStack.length > 0) {  // Otherwise duplicate top stack item
+          const top = newStack[newStack.length - 1];
+          newStack.push(top);
         }
         break;
 
       case 'SWAP':  // Swap top two items
-        if (input !== '0') {  // If there's input, swap with top of stack
-          if (newStack.length > 0) {
-            const temp = newStack.pop()!;
-            newStack.push(input);
-            setInput(temp);
-          }
-        } else if (newStack.length > 1) {  // Otherwise swap top two stack items
+        if (input !== '0') {  // If there's input, push it first
+          pushToStack();
+        }
+        if (newStack.length > 1) {
           const a = newStack.pop()!;
           const b = newStack.pop()!;
           newStack.push(a);
@@ -129,39 +131,37 @@ export const Calculator: React.FC = () => {
         setInput(formatNumber(calc));
         break;
 
-      case 'C':  // Clear all
-        setStack(['0']);
-        setInput('0');
-        return;
+      // Memory operations
+      case 'MS':  // Memory Store
+        mem_de && bug_mem.trace('store', { value: input });
+        localStorage.setItem('calc_memory', input);
+        break;
 
-      case 'ENTER':  // Push input to stack
-        if (input !== '0') {
-          newStack.push(input);
-          setInput('0');
+      case 'MR':  // Memory Recall
+        const stored = localStorage.getItem('calc_memory');
+        if (stored) {
+          mem_de && bug_mem.trace('recall', { value: stored });
+          setInput(stored);
         }
         break;
+
+      case 'MC':  // Memory Clear
+        mem_de && bug_mem.trace('clear');
+        localStorage.removeItem('calc_memory');
+        break;
     }
-    
     setStack(newStack);
   };
 
-  const handleBaseChange = (newBase: NumberBase) => {
-    ui_de && bug_ui.trace("base.change", { from: base, to: newBase, input });
-    setBase(newBase);
-  };
-
-  const appendDigit = (digit: string) => {
-    ui_de && bug_ui.trace("append.digit", { digit, current: input });
-    setInput(input === '0' ? digit : input + digit);
-  };
+  if (!isVisible) return null;
 
   return (
     <div className="calculator">
-      <div className="calc-body">
-        <div className="stack-display">
-          {stack.map((value, i) => (
+      <div className="calculator-inner">
+        <div className="stack">
+          {stack.map((item, i) => (
             <div key={i} className="stack-item">
-              {stack.length - 1 - i}: {value}
+              {item}
             </div>
           ))}
           <div className="stack-item input">

@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useContext } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { DebugContext } from '../context/DebugContext';
+import { DebugContext } from '../../contexts/DebugContext'; // updated path
 import { Box, Paper, Typography } from '@mui/material';
 import './ReadmeViewer.css';
 
 export const ReadmeViewer: React.FC = () => {
   const [content, setContent] = useState('Loading...');
-  const { domains } = useContext(DebugContext);
-  const activeDomains = domains.filter(d => d.enabled);
+  const { domains } = useContext(DebugContext) as { domains: Array<{ localEnabled: boolean; name: string; echo: boolean; }> };
+  const activeDomains = domains.filter((d: { localEnabled: boolean }) => d.localEnabled);
 
   useEffect(() => {
     fetch('/README.md')

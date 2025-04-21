@@ -3,7 +3,7 @@ import { TracePanel } from '../TracePanel';
 import { StackPanel } from '../StackPanel';
 import { SourcePanel } from '../SourcePanel';
 import { Calculator } from '../Calculator';
-import { useDebug } from '../../context/DebugContext';
+import { useDebug } from '../../contexts/DebugContext'; // updated path
 import { DebugBanner } from '../DebugBanner';
 import './Debugger.css';
 
