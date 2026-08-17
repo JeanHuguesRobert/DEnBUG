@@ -1,9 +1,5 @@
-import { colorize } from './color.js';
-import crypto from 'crypto';
-import { NodeTracerProvider } from '@opentelemetry/sdk-trace-node';
-import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-grpc';
-import { SimpleSpanProcessor } from '@opentelemetry/sdk-trace-base';
-import { trace } from '@opentelemetry/api';
+const { colorize } = require('./colors.js');
+const crypto = require('crypto');
 
 // Define contractsEnabled flag.
 let contractsEnabled = process.env.NODE_ENV !== 'production';
@@ -649,14 +645,20 @@ function setContractsEnabled(value) {
 }
 
 if (process.env.ENABLE_TELEMETRY === 'true') {
-    const provider = new NodeTracerProvider();
-    const exporter = new OTLPTraceExporter({ url: 'http://localhost:4317' });
-    provider.addSpanProcessor(new SimpleSpanProcessor(exporter));
-    provider.register();
-    const tracer = trace.getTracer('example-tracer');
-    const span = tracer.startSpan('example-span');
-    console.log('Hello, OpenTelemetry!');
-    span.end();
+    try {
+        const { NodeTracerProvider } = require('@opentelemetry/sdk-trace-node');
+        const { OTLPTraceExporter } = require('@opentelemetry/exporter-trace-otlp-grpc');
+        const { SimpleSpanProcessor } = require('@opentelemetry/sdk-trace-base');
+        const { trace } = require('@opentelemetry/api');
+        const provider = new NodeTracerProvider();
+        const exporter = new OTLPTraceExporter({ url: 'http://localhost:4317' });
+        provider.addSpanProcessor(new SimpleSpanProcessor(exporter));
+        provider.register();
+        const tracer = trace.getTracer('example-tracer');
+        const span = tracer.startSpan('example-span');
+        console.log('Hello, OpenTelemetry!');
+        span.end();
+    } catch (_) {}
 }
 
 const denbug = {

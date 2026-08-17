@@ -1,14 +1,14 @@
-import chalk from 'chalk';
-
-export function colorize(text, color) {
+function colorize(text, color) {
     switch (color) {
         case 'red':
-            return chalk.red(text);
+            return text;
         case 'green':
-            return chalk.green(text);
+            return text;
         case 'blue':
-            return chalk.blue(text);
+            return text;
         default:
             return text;
     }
 }
+
+module.exports = { colorize };
